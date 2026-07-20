@@ -11,6 +11,7 @@ import {
 import { formatCents, formatDollars } from "@/lib/money";
 import type { DiscrepancyRow, OrderRow, PaymentRow } from "@/lib/summary";
 import ExplainPanel from "@/components/explain-panel";
+import TableSkeleton from "@/components/table-skeleton";
 import { severityRank } from "@/lib/reconcile";
 import { PAGE_SIZES } from "@/lib/paging";
 
@@ -229,7 +230,9 @@ export default function DiscrepancyTable({
         )}
       </div>
 
-      {rows.length === 0 ? (
+      {isPending ? (
+        <TableSkeleton rows={Math.max(1, Math.min(pageSize, rows.length || pageSize))} />
+      ) : rows.length === 0 ? (
         <div className="p-12 text-center">
           <p className="text-sm text-ink2">Nothing matches those filters.</p>
           <button
@@ -458,7 +461,6 @@ export default function DiscrepancyTable({
             </span>{" "}
             of <span className="text-ink2">{total}</span>
             {isFiltered && ` (filtered from ${unfilteredTotal})`}
-            {isPending && <span className="ml-2 text-ink3">updating…</span>}
           </p>
 
           <label className="flex items-center gap-2 text-xs text-ink3">

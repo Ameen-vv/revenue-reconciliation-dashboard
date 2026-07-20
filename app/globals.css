@@ -67,3 +67,41 @@ body {
   background: var(--canvas);
   color: var(--ink);
 }
+
+/* Shimmer for loading placeholders.
+   The sweep is a pseudo-element rather than an animated background-position so
+   it composites on the GPU and does not repaint the block on every frame. */
+@keyframes shimmer-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--raised);
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ink3) 18%, transparent),
+    transparent
+  );
+  animation: shimmer-sweep 1.4s infinite;
+}
+
+/* A sweeping highlight is exactly the kind of motion that triggers vestibular
+   discomfort, so it becomes a static block when reduced motion is requested. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after {
+    animation: none;
+    display: none;
+  }
+}
