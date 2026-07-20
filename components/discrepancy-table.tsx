@@ -471,7 +471,9 @@ export default function DiscrepancyTable({
               }}
               className="rounded-md border border-line px-2 py-1 text-sm text-ink outline-none focus:border-ink"
             >
-              {[6, 12, 25, 50].map((n) => (
+              {/* The default page size must appear here, or the select shows
+                  a value that does not match the rows actually rendered. */}
+              {[6, 8, 12, 25, 50].map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>

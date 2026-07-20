@@ -2,35 +2,14 @@ import { formatDollars } from "@/lib/money";
 import type { Summary } from "@/lib/summary";
 
 /**
- * The headline band.
+ * The headline.
  *
- * Structured as one question at a time rather than a wall of equal-weight
- * numbers. "How bad is it" is answered by a single hero figure; the two
- * directions of leakage sit beneath it because they are the two different
- * jobs a person has to do; the volume counts are deliberately the smallest
- * thing on the page, because they are context rather than a call to action.
+ * One figure, then the single split that changes what you do about it. An
+ * earlier version showed seven numbers of equal weight including a "net
+ * position" that summed the two directions -- a figure that read as "$49.73,
+ * nothing to see" while nearly $1,000 sat in each direction. A number nobody
+ * should act on does not belong on the page at all.
  */
-
-function Stat({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-}) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-ink3">
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-ink">{value}</p>
-      <p className="text-xs text-ink3">{sub}</p>
-    </div>
-  );
-}
-
 export default function HeadlineCards({
   summary,
   unquantifiedCount,
@@ -45,109 +24,83 @@ export default function HeadlineCards({
     reconciledCents,
     overchargedCents,
     underCollectedCents,
+    disputedOrderCount,
   } = summary;
 
-  const totalExposure = overchargedCents + Math.abs(underCollectedCents);
-  const cleanOrders = ordersCount - summary.disputedOrderCount;
+  const under = Math.abs(underCollectedCents);
+  const total = overchargedCents + under;
+  const cleanOrders = ordersCount - disputedOrderCount;
   const cleanPercent = Math.round((cleanOrders / ordersCount) * 100);
 
+  // Relative widths of the two directions inside one bar, so the split is
+  // readable at a glance without comparing two separate numbers.
+  const outPercent = total === 0 ? 0 : Math.round((overchargedCents / total) * 100);
+
   return (
-    <div className="space-y-4">
-      {/* How bad is it? One number, stated once. */}
-      <div className="rounded-xl border border-line bg-surface p-6">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="text-sm font-medium text-ink3">
-              Total money involved in discrepancies
-            </p>
-            <p className="mt-1 text-4xl font-semibold tabular-nums text-ink">
-              {formatDollars(totalExposure)}
-            </p>
-            <p className="mt-2 text-sm text-ink2">
-              across <span className="font-medium">{discrepancyCount}</span>{" "}
-              issues affecting{" "}
-              <span className="font-medium">{summary.disputedOrderCount}</span>{" "}
-              of {ordersCount} orders
-              {unquantifiedCount > 0 && (
-                <>, plus {unquantifiedCount} that cannot be valued</>
-              )}
-              .
-            </p>
-          </div>
+    <section className="rounded-xl border border-line bg-surface p-6">
+      <p className="text-sm font-medium text-ink3">Money at risk</p>
+      <p className="mt-1 text-4xl font-semibold tabular-nums text-ink">
+        {formatDollars(total)}
+      </p>
+      <p className="mt-2 max-w-2xl text-sm text-ink2">
+        Found in {discrepancyCount} issues across {disputedOrderCount} of{" "}
+        {ordersCount} orders, checked against {paymentsCount} payments.
+        {unquantifiedCount > 0 && (
+          <>
+            {" "}
+            A further {unquantifiedCount} issues carry no dollar value because
+            the amounts are not comparable.
+          </>
+        )}
+      </p>
 
-          <div className="text-right">
-            <p className="text-sm font-medium text-ink3">Reconciled cleanly</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-good">
-              {cleanPercent}%
-            </p>
-            <p className="text-xs text-ink3">
-              {formatDollars(reconciledCents)} across {cleanOrders} orders
-            </p>
-          </div>
+      {/* The split that decides what you do: give it back, or go and get it. */}
+      <div className="mt-6">
+        <div className="flex h-2.5 overflow-hidden rounded-full">
+          <div className="bg-over" style={{ width: `${outPercent}%` }} />
+          <div className="flex-1 bg-under" />
         </div>
 
-        {/* Proportion bar: the clean majority against the flagged remainder. */}
-        <div className="mt-5 flex h-2 overflow-hidden rounded-full bg-raised">
-          <div className="bg-good" style={{ width: `${cleanPercent}%` }} />
-          <div className="flex-1 bg-ink3/40" />
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div className="flex items-start gap-2.5">
+            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-over" />
+            <div>
+              <p className="text-lg font-semibold tabular-nums text-ink">
+                {formatDollars(overchargedCents)}
+              </p>
+              <p className="text-sm font-medium text-ink">
+                is money you owe back
+              </p>
+              <p className="text-xs text-ink3">
+                Charged in excess or taken with no order behind it. Refund it
+                before the customer disputes it.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2.5">
+            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-under" />
+            <div>
+              <p className="text-lg font-semibold tabular-nums text-ink">
+                {formatDollars(under)}
+              </p>
+              <p className="text-sm font-medium text-ink">
+                is money you are owed
+              </p>
+              <p className="text-xs text-ink3">
+                Orders counted as revenue that were never actually paid for.
+                Collect it or write it off.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* The two directions. These are two different jobs, so two cards. */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-over/40 bg-over-soft p-5">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm bg-over" />
-            <p className="text-sm font-semibold text-ink">Money out the door</p>
-          </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-over">
-            {formatDollars(overchargedCents)}
-          </p>
-          <p className="mt-1 text-sm text-ink2">
-            Charged in excess, or received with no order behind it.
-            <span className="font-medium text-ink">
-              {" "}
-              Refund it before the customer disputes it.
-            </span>
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-under/40 bg-under-soft p-5">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm bg-under" />
-            <p className="text-sm font-semibold text-ink">
-              Money never collected
-            </p>
-          </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-under">
-            {formatDollars(Math.abs(underCollectedCents))}
-          </p>
-          <p className="mt-1 text-sm text-ink2">
-            Orders the store counts as revenue but was never paid for.
-            <span className="font-medium text-ink"> Chase it.</span>
-          </p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-line bg-surface px-5 py-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Stat
-            label="Orders"
-            value={ordersCount.toLocaleString()}
-            sub="after removing duplicates"
-          />
-          <Stat
-            label="Payments"
-            value={paymentsCount.toLocaleString()}
-            sub="rows from the processor"
-          />
-          <Stat
-            label="Net position"
-            value={formatDollars(summary.netAtRiskCents)}
-            sub="the two directions nearly cancel — treat them separately"
-          />
-        </div>
-      </div>
-    </div>
+      <p className="mt-6 border-t border-line pt-4 text-xs text-ink3">
+        The other {cleanPercent}% of orders reconciled cleanly —{" "}
+        {formatDollars(reconciledCents)} across {cleanOrders} orders matched
+        their payments exactly.
+      </p>
+    </section>
   );
 }

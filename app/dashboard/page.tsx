@@ -6,6 +6,11 @@ import PriorityList from "@/components/priority-list";
 import { summarize, riskByType } from "@/lib/summary";
 import { loadLatestImport } from "@/lib/dashboard-data";
 
+/**
+ * The overview answers three questions in order, one section each:
+ * how bad is it, what should I do first, and where does the money sit.
+ * Anything that did not answer one of those has been moved or removed.
+ */
 export default async function OverviewPage() {
   const latest = await loadLatestImport();
 
@@ -39,26 +44,30 @@ export default async function OverviewPage() {
     meta.orders_count,
     meta.payments_count,
   );
+  const exposure = riskByType(discrepancies);
   const unquantifiedCount = discrepancies.filter(
     (d) => d.delta_cents == null,
   ).length;
 
   return (
     <>
+      {/* 1. How bad is it? */}
       <HeadlineCards summary={summary} unquantifiedCount={unquantifiedCount} />
 
-      <PriorityList discrepancies={discrepancies} />
+      {/* 2. What do I do first? */}
+      <PriorityList exposure={exposure} />
 
+      {/* 3. Where does the money sit? Same totals as the list above. */}
       <section className="rounded-xl border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-ink">
-          Where the money is, by problem type
+          The same problems, by size
         </h2>
         <p className="mt-1 text-xs text-ink3">
-          Bars to the right are money that left the business or arrived with no
-          order behind it. Bars to the left are revenue that was never banked.
+          Each row shows both directions separately, so nothing cancels out.
+          The full width of a row is the true size of that problem.
         </p>
         <div className="mt-4">
-          <RiskChart data={riskByType(discrepancies)} />
+          <RiskChart data={exposure} />
         </div>
       </section>
 

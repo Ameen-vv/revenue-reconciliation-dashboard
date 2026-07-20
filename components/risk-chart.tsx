@@ -5,67 +5,72 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Cell,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { DISCREPANCY_LABELS, type DiscrepancyType } from "@/lib/types";
+import { DISCREPANCY_LABELS } from "@/lib/types";
 import { formatCents, formatDollars } from "@/lib/money";
+import type { TypeExposure } from "@/lib/summary";
 
 /**
- * Signed exposure by discrepancy type.
+ * Exposure by type, split left and right of zero.
  *
- * A diverging bar centred on zero rather than a plain magnitude chart, because
- * the sign is the point: bars to the right are money that left the business or
- * arrived unattributed, bars to the left are revenue that was never collected.
- * Ranking by absolute size alone would put two opposite problems side by side
- * and imply they need the same response.
+ * Each type gets both a left segment (revenue never collected) and a right
+ * segment (money out the door) rather than one netted bar. A single netted bar
+ * lets opposite problems inside one type cancel: the status conflicts would
+ * show as $196 when they are really $295 owed back plus $99 uncollected. The
+ * full width of a row is therefore the true size of that problem.
  *
- * Colours are the CSS theme variables rather than literals, so the chart
- * follows the theme switch. Both pairs were validated for colour-vision
- * deficiency against their own surface. Every bar is also directly labelled,
- * so the reading never depends on colour alone.
+ * Colours are theme variables so the chart follows the theme switch; both
+ * pairs were validated for colour-vision deficiency against their own surface,
+ * and every segment is directly labelled so nothing depends on colour alone.
  */
 
-const OVER = "var(--over)"; // money out the door / unattributed
-const UNDER = "var(--under)"; // revenue never banked
+const OVER = "var(--over)";
+const UNDER = "var(--under)";
 const AXIS = "var(--ink3)";
 const BASELINE = "var(--line)";
 
-type Datum = { type: DiscrepancyType; cents: number; count: number };
+type Row = TypeExposure & { out: number; under: number };
 
 function ChartTooltip({
   active,
   payload,
 }: {
   active?: boolean;
-  payload?: { payload: Datum }[];
+  payload?: { payload: Row }[];
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
     <div className="rounded-md border border-line bg-surface px-3 py-2 text-xs shadow-lg">
       <p className="font-medium text-ink">{DISCREPANCY_LABELS[d.type]}</p>
-      <p className="mt-1 text-ink2">
-        {d.count} {d.count === 1 ? "case" : "cases"}
+      <p className="mt-1 text-ink3">
+        {d.count} {d.count === 1 ? "case" : "cases"} ·{" "}
+        {formatDollars(d.totalCents)} total
       </p>
-      <p className="text-ink2">
-        {d.cents >= 0 ? "Out the door" : "Never collected"}:{" "}
-        <span className="font-medium text-ink">
-          {formatDollars(Math.abs(d.cents))}
-        </span>
-      </p>
+      {d.outCents > 0 && (
+        <p className="mt-1 text-over">
+          {formatDollars(d.outCents)} out the door
+        </p>
+      )}
+      {d.underCents > 0 && (
+        <p className="text-under">
+          {formatDollars(d.underCents)} never collected
+        </p>
+      )}
     </div>
   );
 }
 
-export default function RiskChart({ data }: { data: Datum[] }) {
-  // Types with no quantifiable delta (currency mismatch) would render as an
-  // invisible zero-width bar and read as "no exposure", which is the opposite
-  // of true. They are named below the chart instead of vanishing from it.
-  const plotted = data.filter((d) => d.cents !== 0);
-  const omitted = data.filter((d) => d.cents === 0);
+export default function RiskChart({ data }: { data: TypeExposure[] }) {
+  // Types with no quantifiable money would render as an empty row and read as
+  // "nothing here", which is the opposite of true. Named below instead.
+  const plotted: Row[] = data
+    .filter((d) => d.totalCents > 0)
+    .map((d) => ({ ...d, out: d.outCents, under: -d.underCents }));
+  const omitted = data.filter((d) => d.totalCents === 0);
 
   if (plotted.length === 0) {
     return (
@@ -75,10 +80,10 @@ export default function RiskChart({ data }: { data: Datum[] }) {
     );
   }
 
-  // Round the axis bound up to a whole 100 units of currency so the generated
-  // ticks land on readable numbers instead of arbitrary fractions of the max.
-  const max = Math.max(...plotted.map((d) => Math.abs(d.cents)));
-  const bound = Math.ceil((max * 1.25) / 10000) * 10000;
+  const max = Math.max(
+    ...plotted.map((d) => Math.max(d.outCents, d.underCents)),
+  );
+  const bound = Math.ceil((max * 1.3) / 10000) * 10000;
 
   return (
     <div>
@@ -86,29 +91,30 @@ export default function RiskChart({ data }: { data: Datum[] }) {
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ background: OVER }}
+            style={{ background: UNDER }}
           />
-          Out the door
+          Never collected (left)
         </span>
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ background: UNDER }}
+            style={{ background: OVER }}
           />
-          Never collected
+          Out the door (right)
         </span>
       </div>
 
-      <ResponsiveContainer width="100%" height={plotted.length * 44 + 40}>
+      <ResponsiveContainer width="100%" height={plotted.length * 46 + 44}>
         <BarChart
           data={plotted}
           layout="vertical"
-          margin={{ top: 16, right: 80, bottom: 8, left: 130 }}
+          stackOffset="sign"
+          margin={{ top: 16, right: 70, bottom: 8, left: 130 }}
         >
           <XAxis
             type="number"
             domain={[-bound, bound]}
-            tickFormatter={(v: number) => formatCents(v)}
+            tickFormatter={(v: number) => formatCents(Math.abs(v))}
             tick={{ fill: AXIS, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
@@ -120,12 +126,33 @@ export default function RiskChart({ data }: { data: Datum[] }) {
             tick={{ fill: AXIS, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(t: DiscrepancyType) => DISCREPANCY_LABELS[t]}
+            tickFormatter={(t: keyof typeof DISCREPANCY_LABELS) =>
+              DISCREPANCY_LABELS[t]
+            }
           />
           <ReferenceLine x={0} stroke={BASELINE} />
           <Tooltip cursor={{ fill: "var(--raised)" }} content={<ChartTooltip />} />
           <Bar
-            dataKey="cents"
+            dataKey="under"
+            stackId="exposure"
+            fill={UNDER}
+            radius={4}
+            barSize={16}
+            isAnimationActive={false}
+            label={{
+              position: "left",
+              fontSize: 11,
+              fill: "var(--ink2)",
+              formatter: (v: unknown) =>
+                typeof v === "number" && v !== 0
+                  ? formatCents(Math.abs(v))
+                  : "",
+            }}
+          />
+          <Bar
+            dataKey="out"
+            stackId="exposure"
+            fill={OVER}
             radius={4}
             barSize={16}
             isAnimationActive={false}
@@ -134,13 +161,9 @@ export default function RiskChart({ data }: { data: Datum[] }) {
               fontSize: 11,
               fill: "var(--ink2)",
               formatter: (v: unknown) =>
-                typeof v === "number" ? formatCents(Math.abs(v)) : "",
+                typeof v === "number" && v !== 0 ? formatCents(v) : "",
             }}
-          >
-            {plotted.map((d) => (
-              <Cell key={d.type} fill={d.cents >= 0 ? OVER : UNDER} />
-            ))}
-          </Bar>
+          />
         </BarChart>
       </ResponsiveContainer>
 

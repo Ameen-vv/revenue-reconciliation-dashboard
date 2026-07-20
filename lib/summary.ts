@@ -122,20 +122,52 @@ export function summarize(
   };
 }
 
-/** Signed exposure per discrepancy type, for the chart. */
-export function riskByType(
-  discrepancies: DiscrepancyRow[],
-): { type: DiscrepancyType; cents: number; count: number }[] {
-  const totals = new Map<DiscrepancyType, { cents: number; count: number }>();
+export type TypeExposure = {
+  type: DiscrepancyType;
+  /** Money taken in excess or received unattributed. Always >= 0. */
+  outCents: number;
+  /** Money owed but never banked. Always >= 0. */
+  underCents: number;
+  /** outCents + underCents. The real size of the problem. */
+  totalCents: number;
+  count: number;
+  /** Orders behind this type, for the drill-down link. */
+  keys: string[];
+};
+
+/**
+ * Exposure per type, split by direction and never netted.
+ *
+ * The two directions are kept apart rather than summed. Netting inside a type
+ * is actively misleading: the three status conflicts are +175, +120 and -99,
+ * which net to 196 and make it look like a $196 problem when it is really
+ * $295 owed back to customers and $99 never collected. Summing them also made
+ * this figure disagree with the same type's total elsewhere on the page.
+ */
+export function riskByType(discrepancies: DiscrepancyRow[]): TypeExposure[] {
+  const totals = new Map<DiscrepancyType, TypeExposure>();
 
   for (const d of discrepancies) {
-    const entry = totals.get(d.type) ?? { cents: 0, count: 0 };
-    entry.cents += d.delta_cents ?? 0;
+    const entry =
+      totals.get(d.type) ??
+      ({
+        type: d.type,
+        outCents: 0,
+        underCents: 0,
+        totalCents: 0,
+        count: 0,
+        keys: [],
+      } satisfies TypeExposure);
+
+    const delta = d.delta_cents ?? 0;
+    if (delta > 0) entry.outCents += delta;
+    else entry.underCents += Math.abs(delta);
+    entry.totalCents = entry.outCents + entry.underCents;
     entry.count += 1;
+    if (d.order_key) entry.keys.push(d.order_key);
+
     totals.set(d.type, entry);
   }
 
-  return [...totals.entries()]
-    .map(([type, v]) => ({ type, ...v }))
-    .sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents));
+  return [...totals.values()].sort((a, b) => b.totalCents - a.totalCents);
 }
