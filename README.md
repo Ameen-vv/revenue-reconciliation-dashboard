@@ -4,9 +4,10 @@ Reconciles a store's order export against its payment processor export,
 classifies every way the two disagree, and quantifies the money involved in
 both directions.
 
-- **Live app:** _(deployment URL)_
-- **Test credentials:** sign-up is open and requires no email confirmation, so
-  any address works. A seeded account is listed under [Demo account](#demo-account).
+- **Live app:** https://revenue-reconciliation-dashboard-henna.vercel.app/
+- **Access:** sign-up is open and email confirmation is switched off, so any
+  address works and you are signed in immediately. Create an account, then use
+  **Load sample dataset** on the overview to ingest the two supplied exports.
 
 ---
 
@@ -203,10 +204,6 @@ Environment variables — see `.env.example`:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Anon key; safe in the browser, RLS does the enforcing |
 | `GROQ_API_KEY` | no | Explanation layer. Unset ⇒ static explanations, app still works |
 | `LLM_MODEL` | no | Defaults to `llama-3.3-70b-versatile` |
-
-### Demo account
-
-_(to be filled in once deployed)_
 
 ---
 
