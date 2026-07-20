@@ -1,16 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   DISCREPANCY_LABELS,
   DISCREPANCY_SUMMARIES,
   DISCREPANCY_ACTIONS,
   type DiscrepancyType,
 } from "@/lib/types";
-import { severityRank } from "@/lib/reconcile";
 import { formatCents, formatDollars } from "@/lib/money";
 import type { DiscrepancyRow, OrderRow, PaymentRow } from "@/lib/summary";
 import ExplainPanel from "@/components/explain-panel";
+import { severityRank } from "@/lib/reconcile";
+import { PAGE_SIZES } from "@/lib/paging";
 
 const SEVERITY_STYLES: Record<string, string> = {
   critical: "bg-over/20 text-over",
@@ -99,74 +101,78 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 export default function DiscrepancyTable({
-  discrepancies,
+  rows,
   orders,
   payments,
-  initialType = "all",
+  total,
+  unfilteredTotal,
+  countsByType,
+  page,
+  pageCount,
+  pageSize,
+  type,
+  query,
 }: {
-  discrepancies: DiscrepancyRow[];
+  rows: DiscrepancyRow[];
   orders: Record<string, OrderRow>;
   payments: Record<string, PaymentRow>;
-  /** Pre-applied filter, set when arriving from a "Start here" link. */
-  initialType?: DiscrepancyType | "all";
+  total: number;
+  unfilteredTotal: number;
+  countsByType: { type: DiscrepancyType; count: number }[];
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  type: DiscrepancyType | "all";
+  query: string;
 }) {
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<DiscrepancyType | "all">(
-    initialType,
-  );
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState(8);
-  const [page, setPage] = useState(1);
+  const [isPending, startTransition] = useTransition();
+  // Mirrors the input while typing; the URL, and therefore the query, only
+  // catches up after the debounce below.
+  const [draftQuery, setDraftQuery] = useState(query);
 
-  const presentTypes = useMemo(() => {
-    const counts = new Map<DiscrepancyType, number>();
-    for (const d of discrepancies)
-      counts.set(d.type, (counts.get(d.type) ?? 0) + 1);
-    return [...counts.entries()].sort(
-      (a, b) => severityRank(a[0]) - severityRank(b[0]),
-    );
-  }, [discrepancies]);
-
-  const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-
-    return discrepancies
-      .filter((d) => typeFilter === "all" || d.type === typeFilter)
-      .filter((d) => {
-        if (!needle) return true;
-        return (
-          (d.order_key ?? "").toLowerCase().includes(needle) ||
-          d.transaction_refs.some((r) => r.toLowerCase().includes(needle)) ||
-          DISCREPANCY_LABELS[d.type].toLowerCase().includes(needle) ||
-          DISCREPANCY_SUMMARIES[d.type].toLowerCase().includes(needle) ||
-          d.detail.toLowerCase().includes(needle)
-        );
-      })
-      .sort((a, b) => {
-        // Worst class first, then biggest money inside a class -- the same
-        // ordering the engine applies, so the table always opens on the rows
-        // that cost the most to ignore.
-        const byRank = severityRank(a.type) - severityRank(b.type);
-        if (byRank !== 0) return byRank;
-        const byDelta =
-          Math.abs(b.delta_cents ?? 0) - Math.abs(a.delta_cents ?? 0);
-        if (byDelta !== 0) return byDelta;
-        return (a.order_key ?? "").localeCompare(b.order_key ?? "");
+  /**
+   * All table state lives in the URL, so every view is a shareable link and
+   * the server re-renders with real data instead of the browser filtering a
+   * copy of the whole table.
+   */
+  const navigate = useCallback(
+    (changes: Record<string, string | null>, { resetPage = true } = {}) => {
+      const next = new URLSearchParams(params.toString());
+      for (const [key, value] of Object.entries(changes)) {
+        if (value === null || value === "") next.delete(key);
+        else next.set(key, value);
+      }
+      if (resetPage && !("page" in changes)) next.delete("page");
+      setExpanded(null);
+      startTransition(() => {
+        router.replace(`${pathname}?${next.toString()}`, { scroll: false });
       });
-  }, [discrepancies, query, typeFilter]);
+    },
+    [params, pathname, router],
+  );
 
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-  // Clamp rather than store a corrected page in state: narrowing the filter
-  // while on page 3 would otherwise render an empty list until a second
-  // render corrected it.
-  const currentPage = Math.min(page, pageCount);
-  const start = (currentPage - 1) * pageSize;
-  const visible = rows.slice(start, start + pageSize);
-
-  function resetPaging() {
-    setPage(1);
-    setExpanded(null);
+  // Debounced search: every keystroke would otherwise be a database query.
+  function onSearchChange(value: string) {
+    setDraftQuery(value);
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(
+      () => navigate({ q: value.trim() || null }),
+      300,
+    );
   }
+
+  // Ordered by the engine's own severity ranking, so the dropdown agrees with
+  // the list rather than restating the order in a second place.
+  const sortedTypes = [...countsByType].sort(
+    (a, b) => severityRank(a.type) - severityRank(b.type),
+  );
+
+  const start = (page - 1) * pageSize;
+  const isFiltered = type !== "all" || query !== "";
 
   return (
     <section className="rounded-xl border border-line bg-surface">
@@ -183,42 +189,37 @@ export default function DiscrepancyTable({
 
           <input
             type="search"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              resetPaging();
-            }}
+            value={draftQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search order or transaction…"
+            aria-label="Search discrepancies"
             className="w-56 rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
           />
 
           <select
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value as DiscrepancyType | "all");
-              resetPaging();
-            }}
+            value={type}
+            onChange={(e) => navigate({ type: e.target.value === "all" ? null : e.target.value })}
+            aria-label="Filter by type"
             className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
           >
-            <option value="all">All types ({discrepancies.length})</option>
-            {presentTypes.map(([type, count]) => (
-              <option key={type} value={type}>
-                {DISCREPANCY_LABELS[type]} ({count})
+            <option value="all">All types ({unfilteredTotal})</option>
+            {sortedTypes.map((t) => (
+              <option key={t.type} value={t.type}>
+                {DISCREPANCY_LABELS[t.type]} ({t.count})
               </option>
             ))}
           </select>
         </div>
 
-        {/* The row count lives in the pagination footer, so this only offers
-            the escape hatch rather than repeating the same figure twice. */}
-        {(query || typeFilter !== "all") && (
+        {isFiltered && (
           <div className="mt-3 flex items-center gap-3 text-xs text-ink2">
-            <span>Filtered.</span>
+            <span>
+              Filtered to {total} of {unfilteredTotal}.
+            </span>
             <button
               onClick={() => {
-                setQuery("");
-                setTypeFilter("all");
-                resetPaging();
+                setDraftQuery("");
+                navigate({ type: null, q: null });
               }}
               className="font-medium text-ink underline"
             >
@@ -233,9 +234,8 @@ export default function DiscrepancyTable({
           <p className="text-sm text-ink2">Nothing matches those filters.</p>
           <button
             onClick={() => {
-              setQuery("");
-              setTypeFilter("all");
-              resetPaging();
+              setDraftQuery("");
+              navigate({ type: null, q: null });
             }}
             className="mt-3 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink2"
           >
@@ -244,7 +244,7 @@ export default function DiscrepancyTable({
         </div>
       ) : (
         <ul className="divide-y divide-line">
-          {visible.map((d) => {
+          {rows.map((d) => {
             const isOpen = expanded === d.id;
             const order = d.order_key ? orders[d.order_key] : undefined;
             const matched = d.transaction_refs
@@ -449,31 +449,27 @@ export default function DiscrepancyTable({
         </ul>
       )}
 
-      {rows.length > 0 && (
+      {total > 0 && (
         <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3 text-sm">
           <p className="mr-auto text-ink3">
             Showing{" "}
             <span className="text-ink2">
-              {start + 1}–{Math.min(start + pageSize, rows.length)}
+              {start + 1}–{Math.min(start + pageSize, total)}
             </span>{" "}
-            of <span className="text-ink2">{rows.length}</span>
-            {rows.length !== discrepancies.length &&
-              ` (filtered from ${discrepancies.length})`}
+            of <span className="text-ink2">{total}</span>
+            {isFiltered && ` (filtered from ${unfilteredTotal})`}
+            {isPending && <span className="ml-2 text-ink3">updating…</span>}
           </p>
 
           <label className="flex items-center gap-2 text-xs text-ink3">
             Rows
             <select
               value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                resetPaging();
-              }}
+              onChange={(e) => navigate({ size: e.target.value })}
+              aria-label="Rows per page"
               className="rounded-md border border-line px-2 py-1 text-sm text-ink outline-none focus:border-ink"
             >
-              {/* The default page size must appear here, or the select shows
-                  a value that does not match the rows actually rendered. */}
-              {[6, 8, 12, 25, 50].map((n) => (
+              {PAGE_SIZES.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -483,16 +479,13 @@ export default function DiscrepancyTable({
 
           <div className="flex items-center gap-1">
             <PageButton
-              onClick={() => {
-                setPage(currentPage - 1);
-                setExpanded(null);
-              }}
-              disabled={currentPage === 1}
+              onClick={() => navigate({ page: String(page - 1) }, { resetPage: false })}
+              disabled={page === 1}
             >
               Previous
             </PageButton>
 
-            {pageNumbers(currentPage, pageCount).map((n, i) =>
+            {pageNumbers(page, pageCount).map((n, i) =>
               n === "gap" ? (
                 <span key={`gap-${i}`} className="px-1 text-ink3">
                   …
@@ -500,13 +493,10 @@ export default function DiscrepancyTable({
               ) : (
                 <button
                   key={n}
-                  onClick={() => {
-                    setPage(n);
-                    setExpanded(null);
-                  }}
-                  aria-current={n === currentPage ? "page" : undefined}
+                  onClick={() => navigate({ page: String(n) }, { resetPage: false })}
+                  aria-current={n === page ? "page" : undefined}
                   className={`min-w-8 rounded-md px-2 py-1 text-sm ${
-                    n === currentPage
+                    n === page
                       ? "bg-ink font-medium text-canvas"
                       : "text-ink2 hover:bg-raised"
                   }`}
@@ -517,11 +507,8 @@ export default function DiscrepancyTable({
             )}
 
             <PageButton
-              onClick={() => {
-                setPage(currentPage + 1);
-                setExpanded(null);
-              }}
-              disabled={currentPage === pageCount}
+              onClick={() => navigate({ page: String(page + 1) }, { resetPage: false })}
+              disabled={page === pageCount}
             >
               Next
             </PageButton>
@@ -531,6 +518,9 @@ export default function DiscrepancyTable({
     </section>
   );
 }
+
+/** Module-scoped so the debounce survives re-renders without a ref. */
+let searchTimer = 0;
 
 function PageButton({
   onClick,
@@ -553,10 +543,8 @@ function PageButton({
 }
 
 /**
- * Page numbers with an ellipsis once the count grows.
- *
- * The sample dataset only needs three pages, but an import of real size would
- * otherwise render a page button per hundred rows and wrap the footer.
+ * Page numbers with an ellipsis once the count grows, so a large import does
+ * not render a button per page and wrap the footer.
  */
 function pageNumbers(current: number, total: number): (number | "gap")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);

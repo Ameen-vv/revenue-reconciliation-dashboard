@@ -1,12 +1,45 @@
 import Link from "next/link";
 import DiscrepancyTable from "@/components/discrepancy-table";
-import { loadLatestImport, indexForDrilldown } from "@/lib/dashboard-data";
+import { loadLatestImport, loadDiscrepancyPage } from "@/lib/dashboard-data";
+import { PAGE_SIZES, DEFAULT_PAGE_SIZE } from "@/lib/paging";
 import { DISCREPANCY_TYPES, type DiscrepancyType } from "@/lib/types";
+
+/** Longest search term accepted, to keep the ILIKE bounded. */
+const MAX_QUERY = 80;
+
+/**
+ * Every control is URL state, which makes a filtered view shareable and lets
+ * the server do the work. All four values are validated here rather than
+ * trusted, so a hand-edited query string cannot reach the database.
+ */
+function parseParams(raw: Record<string, string | string[] | undefined>) {
+  const one = (v: string | string[] | undefined) =>
+    Array.isArray(v) ? v[0] : v;
+
+  const pageRaw = Number(one(raw.page));
+  const page =
+    Number.isInteger(pageRaw) && pageRaw > 0 ? Math.min(pageRaw, 10_000) : 1;
+
+  const sizeRaw = Number(one(raw.size));
+  const pageSize = (PAGE_SIZES as readonly number[]).includes(sizeRaw)
+    ? sizeRaw
+    : DEFAULT_PAGE_SIZE;
+
+  const typeRaw = one(raw.type);
+  const type: DiscrepancyType | "all" =
+    typeRaw && (DISCREPANCY_TYPES as readonly string[]).includes(typeRaw)
+      ? (typeRaw as DiscrepancyType)
+      : "all";
+
+  const query = (one(raw.q) ?? "").trim().slice(0, MAX_QUERY);
+
+  return { page, pageSize, type, query };
+}
 
 export default async function DiscrepanciesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const latest = await loadLatestImport();
 
@@ -28,27 +61,29 @@ export default async function DiscrepanciesPage({
     );
   }
 
-  const { discrepancies, orders, payments } = latest;
-  const { ordersByKey, paymentsByRef } = indexForDrilldown(
-    discrepancies,
-    orders,
-    payments,
-  );
+  const { page, pageSize, type, query } = parseParams(await searchParams);
 
-  // A type can be deep-linked from the overview. Validated against the known
-  // set so an arbitrary query string cannot reach the client as a filter.
-  const requested = (await searchParams).type;
-  const initialType =
-    requested && (DISCREPANCY_TYPES as readonly string[]).includes(requested)
-      ? (requested as DiscrepancyType)
-      : "all";
+  const result = await loadDiscrepancyPage({
+    importId: latest.meta.id,
+    page,
+    pageSize,
+    type,
+    query,
+  });
 
   return (
     <DiscrepancyTable
-      discrepancies={discrepancies}
-      orders={ordersByKey}
-      payments={paymentsByRef}
-      initialType={initialType}
+      rows={result.rows}
+      orders={result.orders}
+      payments={result.payments}
+      total={result.total}
+      unfilteredTotal={result.unfilteredTotal}
+      countsByType={result.countsByType}
+      page={result.page}
+      pageCount={result.pageCount}
+      pageSize={pageSize}
+      type={type}
+      query={query}
     />
   );
 }

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createClient } from "@/lib/supabase/server";
 import { parseOrders, parsePayments } from "@/lib/ingest";
-import { reconcile } from "@/lib/reconcile";
+import { reconcile, severityRank } from "@/lib/reconcile";
 import type { NormalizedOrder, NormalizedPayment } from "@/lib/types";
 
 /**
@@ -193,6 +193,19 @@ export async function POST(request: Request) {
           actual_cents: d.actualCents,
           delta_cents: d.deltaCents,
           detail: d.detail,
+          // Derived columns that let Postgres do the sorting and searching.
+          // The engine stays the single source of truth for severity order;
+          // this just projects its ranking into a column SQL can ORDER BY.
+          severity_rank: severityRank(d.type),
+          abs_delta_cents: Math.abs(d.deltaCents ?? 0),
+          search_text: [
+            d.orderKey ?? "",
+            d.transactionRefs.join(" "),
+            d.type.replace(/_/g, " "),
+            d.detail,
+          ]
+            .join(" ")
+            .toLowerCase(),
         })),
       );
     if (discrepancyError) return rollback(discrepancyError.message);
