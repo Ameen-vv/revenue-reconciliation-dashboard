@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Paths that an anonymous visitor is allowed to reach. */
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback"];
+const PUBLIC_PATHS = ["/", "/auth/callback"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname);
@@ -12,9 +12,9 @@ function isPublic(pathname: string) {
  * Refreshes the Supabase session cookie on every request and gates access.
  *
  * Two different failure modes need two different responses: a browser hitting
- * a protected page should be redirected to /login, while an unauthenticated
- * fetch to /api/* should get a 401 JSON body rather than an HTML redirect it
- * cannot parse.
+ * a protected page should be redirected to the sign-in screen, while an
+ * unauthenticated fetch to /api/* should get a 401 JSON body rather than an
+ * HTML redirect it cannot parse.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -55,14 +55,14 @@ export async function updateSession(request: NextRequest) {
     }
     if (!isPublic(pathname)) {
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = "/";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
   }
 
-  // A logged-in user has no reason to sit on the auth pages.
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  // A logged-in user has no reason to sit on the sign-in screen.
+  if (user && pathname === "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";

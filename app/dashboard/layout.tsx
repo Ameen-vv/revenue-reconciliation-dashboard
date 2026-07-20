@@ -16,7 +16,7 @@ export default async function DashboardLayout({
 
   // The middleware already gates this route; this is the second line of
   // defence and covers both pages beneath the layout at once.
-  if (!user) redirect("/login");
+  if (!user) redirect("/");
 
   return (
     <div className="min-h-screen bg-canvas md:flex">

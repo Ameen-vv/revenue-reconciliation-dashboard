@@ -217,9 +217,10 @@ Postgres and auth.
 
 ```
 app/
-  page.tsx              landing, redirects to /dashboard when signed in
-  login|signup/         email + password
-  dashboard/page.tsx    server component; reads the latest import
+  page.tsx              sign in / create account; redirects when signed in
+  dashboard/layout.tsx  sidebar shell, auth gate for both pages
+  dashboard/page.tsx    overview: headline figures, priorities, chart
+  dashboard/discrepancies/  the paginated drill-down table
   api/import/route.ts   parse -> normalise -> reconcile -> persist
   api/explain/route.ts  LLM explanation for one discrepancy
 lib/
