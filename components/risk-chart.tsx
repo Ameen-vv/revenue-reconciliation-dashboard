@@ -73,8 +73,10 @@ export default function RiskChart({ data }: { data: Datum[] }) {
     );
   }
 
+  // Round the axis bound up to a whole 100 units of currency so the generated
+  // ticks land on readable numbers instead of arbitrary fractions of the max.
   const max = Math.max(...plotted.map((d) => Math.abs(d.cents)));
-  const bound = max * 1.25;
+  const bound = Math.ceil((max * 1.25) / 10000) * 10000;
 
   return (
     <div>

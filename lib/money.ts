@@ -36,11 +36,19 @@ export function toCents(value: string | null | undefined): number | null {
   return sign === "-" ? -magnitude : magnitude;
 }
 
-/** Formats integer cents for display, e.g. 32512 -> "325.12". */
+/**
+ * Formats integer cents for display, e.g. 3251200 -> "32,512.00".
+ *
+ * Input is rounded first: chart libraries hand back fractional tick values
+ * derived from the domain, and formatting those digit-by-digit produces
+ * nonsense like "490.43.75".
+ */
 export function formatCents(cents: number): string {
-  const negative = cents < 0;
-  const abs = Math.abs(cents);
-  const body = `${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+  const rounded = Math.round(cents);
+  const negative = rounded < 0;
+  const abs = Math.abs(rounded);
+  const whole = Math.floor(abs / 100).toLocaleString("en-US");
+  const body = `${whole}.${String(abs % 100).padStart(2, "0")}`;
   return negative ? `-${body}` : body;
 }
 
