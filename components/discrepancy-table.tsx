@@ -111,10 +111,11 @@ export default function DiscrepancyTable({
   initialType?: DiscrepancyType | "all";
 }) {
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] =
-    useState<DiscrepancyType | "all">(initialType);
+  const [typeFilter, setTypeFilter] = useState<DiscrepancyType | "all">(
+    initialType,
+  );
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(8);
   const [page, setPage] = useState(1);
 
   const presentTypes = useMemo(() => {
@@ -229,9 +230,7 @@ export default function DiscrepancyTable({
 
       {rows.length === 0 ? (
         <div className="p-12 text-center">
-          <p className="text-sm text-ink2">
-            Nothing matches those filters.
-          </p>
+          <p className="text-sm text-ink2">Nothing matches those filters.</p>
           <button
             onClick={() => {
               setQuery("");
@@ -329,7 +328,10 @@ export default function DiscrepancyTable({
                         </h3>
                         {order ? (
                           <dl className="mt-2 text-sm">
-                            <Field label="Order id" value={order.raw_order_id} />
+                            <Field
+                              label="Order id"
+                              value={order.raw_order_id}
+                            />
                             <Field
                               label="Date"
                               value={order.order_date_raw ?? "—"}
@@ -384,7 +386,9 @@ export default function DiscrepancyTable({
                                 />
                                 <Field
                                   label="Processed"
-                                  value={p.processed_at_raw?.trim() || "missing"}
+                                  value={
+                                    p.processed_at_raw?.trim() || "missing"
+                                  }
                                   highlight={!p.processed_at_raw?.trim()}
                                 />
                                 <Field
@@ -467,7 +471,7 @@ export default function DiscrepancyTable({
               }}
               className="rounded-md border border-line px-2 py-1 text-sm text-ink outline-none focus:border-ink"
             >
-              {[10, 25, 50].map((n) => (
+              {[6, 12, 25, 50].map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
