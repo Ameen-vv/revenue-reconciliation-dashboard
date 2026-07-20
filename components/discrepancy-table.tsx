@@ -1,39 +1,60 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DISCREPANCY_LABELS, type DiscrepancyType } from "@/lib/types";
+import {
+  DISCREPANCY_LABELS,
+  DISCREPANCY_SUMMARIES,
+  DISCREPANCY_ACTIONS,
+  type DiscrepancyType,
+} from "@/lib/types";
 import { severityRank } from "@/lib/reconcile";
-import { formatCents } from "@/lib/money";
+import { formatCents, formatDollars } from "@/lib/money";
 import type { DiscrepancyRow, OrderRow, PaymentRow } from "@/lib/summary";
 import ExplainPanel from "@/components/explain-panel";
 
 const SEVERITY_STYLES: Record<string, string> = {
-  critical: "bg-red-50 text-red-700 ring-red-200",
-  high: "bg-orange-50 text-orange-700 ring-orange-200",
-  medium: "bg-amber-50 text-amber-800 ring-amber-200",
-  low: "bg-slate-100 text-slate-700 ring-slate-200",
-  info: "bg-slate-50 text-slate-600 ring-slate-200",
+  critical: "bg-red-100 text-red-800",
+  high: "bg-orange-100 text-orange-800",
+  medium: "bg-amber-100 text-amber-800",
+  low: "bg-slate-200 text-slate-700",
+  info: "bg-slate-100 text-slate-600",
 };
 
+/**
+ * Signed money, with the direction spelled out in words.
+ *
+ * A bare "+128.74" in red requires the reader to already know the sign
+ * convention. Saying "out the door" and "uncollected" means they do not.
+ */
 function Delta({ cents }: { cents: number | null }) {
   if (cents == null) {
     return (
-      <span
-        className="text-slate-400"
-        title="Not quantifiable without an exchange rate"
-      >
-        n/a
-      </span>
+      <div className="text-right">
+        <span className="text-slate-400">n/a</span>
+        <p className="text-[11px] text-slate-400">not comparable</p>
+      </div>
     );
   }
-  if (cents === 0) return <span className="text-slate-400">—</span>;
+  if (cents === 0) {
+    return (
+      <div className="text-right">
+        <span className="text-slate-400">—</span>
+        <p className="text-[11px] text-slate-400">amount is correct</p>
+      </div>
+    );
+  }
+  const out = cents > 0;
   return (
-    <span
-      className={cents > 0 ? "font-medium text-red-700" : "font-medium text-blue-700"}
-    >
-      {cents > 0 ? "+" : "−"}
-      {formatCents(Math.abs(cents))}
-    </span>
+    <div className="text-right">
+      <span
+        className={`font-semibold tabular-nums ${out ? "text-red-700" : "text-blue-700"}`}
+      >
+        {formatDollars(Math.abs(cents))}
+      </span>
+      <p className={`text-[11px] ${out ? "text-red-600" : "text-blue-600"}`}>
+        {out ? "out the door" : "uncollected"}
+      </p>
+    </div>
   );
 }
 
@@ -47,16 +68,33 @@ function Field({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex justify-between gap-4 py-1">
+    <div className="flex justify-between gap-4 border-b border-slate-100 py-1.5 last:border-0">
       <dt className="text-slate-500">{label}</dt>
       <dd
         className={
-          highlight ? "font-medium text-red-700" : "text-slate-900"
+          highlight
+            ? "rounded bg-red-50 px-1.5 font-semibold text-red-700"
+            : "text-slate-900"
         }
       >
         {value}
       </dd>
     </div>
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+        open ? "rotate-90" : ""
+      }`}
+      fill="currentColor"
+    >
+      <path d="M7.5 4.5 13 10l-5.5 5.5-1.4-1.4L10.2 10 6.1 5.9z" />
+    </svg>
   );
 }
 
@@ -93,6 +131,7 @@ export default function DiscrepancyTable({
           (d.order_key ?? "").toLowerCase().includes(needle) ||
           d.transaction_refs.some((r) => r.toLowerCase().includes(needle)) ||
           DISCREPANCY_LABELS[d.type].toLowerCase().includes(needle) ||
+          DISCREPANCY_SUMMARIES[d.type].toLowerCase().includes(needle) ||
           d.detail.toLowerCase().includes(needle)
         );
       })
@@ -111,219 +150,274 @@ export default function DiscrepancyTable({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
-        <h2 className="mr-auto text-sm font-semibold text-slate-900">
-          Discrepancies
-        </h2>
+      <div className="border-b border-slate-200 p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="mr-auto">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Every discrepancy, worst first
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Click any row to see the order and payment records side by side.
+            </p>
+          </div>
 
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search order or transaction…"
-          className="w-60 rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
-        />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search order or transaction…"
+            className="w-56 rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
+          />
 
-        <select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter(e.target.value as DiscrepancyType | "all")
-          }
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
-        >
-          <option value="all">All types ({discrepancies.length})</option>
-          {presentTypes.map(([type, count]) => (
-            <option key={type} value={type}>
-              {DISCREPANCY_LABELS[type]} ({count})
-            </option>
-          ))}
-        </select>
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              setTypeFilter(e.target.value as DiscrepancyType | "all")
+            }
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
+          >
+            <option value="all">All types ({discrepancies.length})</option>
+            {presentTypes.map(([type, count]) => (
+              <option key={type} value={type}>
+                {DISCREPANCY_LABELS[type]} ({count})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {(query || typeFilter !== "all") && (
+          <div className="mt-3 flex items-center gap-3 text-xs text-slate-600">
+            <span>
+              Showing {rows.length} of {discrepancies.length}
+            </span>
+            <button
+              onClick={() => {
+                setQuery("");
+                setTypeFilter("all");
+              }}
+              className="font-medium text-slate-900 underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-10 text-center text-sm text-slate-500">
-          No discrepancies match this filter.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-slate-500">
-              <tr className="border-b border-slate-200">
-                <th className="px-4 py-2 font-medium">Type</th>
-                <th className="px-4 py-2 font-medium">Order</th>
-                <th className="px-4 py-2 font-medium">Transactions</th>
-                <th className="px-4 py-2 text-right font-medium">Expected</th>
-                <th className="px-4 py-2 text-right font-medium">Settled</th>
-                <th className="px-4 py-2 text-right font-medium">Delta</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((d) => {
-                const isOpen = expanded === d.id;
-                const order = d.order_key ? orders[d.order_key] : undefined;
-                const matched = d.transaction_refs
-                  .map((ref) => payments[ref])
-                  .filter(Boolean);
-
-                return (
-                  <tr key={d.id} className="border-b border-slate-100 align-top">
-                    <td colSpan={6} className="p-0">
-                      <button
-                        onClick={() => setExpanded(isOpen ? null : d.id)}
-                        aria-expanded={isOpen}
-                        className="grid w-full grid-cols-[1.4fr_0.8fr_1.4fr_0.8fr_0.8fr_0.8fr] items-center gap-0 text-left hover:bg-slate-50"
-                      >
-                        <span className="flex items-center gap-2 px-4 py-3">
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
-                              SEVERITY_STYLES[d.severity] ?? SEVERITY_STYLES.info
-                            }`}
-                          >
-                            {d.severity}
-                          </span>
-                          <span className="text-slate-900">
-                            {DISCREPANCY_LABELS[d.type]}
-                          </span>
-                        </span>
-                        <span className="px-4 py-3 font-mono text-xs text-slate-700">
-                          {d.order_key ?? "—"}
-                        </span>
-                        <span className="px-4 py-3 font-mono text-xs text-slate-500">
-                          {d.transaction_refs.join(", ") || "—"}
-                        </span>
-                        <span className="px-4 py-3 text-right text-slate-700">
-                          {d.expected_cents == null
-                            ? "—"
-                            : formatCents(d.expected_cents)}
-                        </span>
-                        <span className="px-4 py-3 text-right text-slate-700">
-                          {d.actual_cents == null
-                            ? "—"
-                            : formatCents(d.actual_cents)}
-                        </span>
-                        <span className="px-4 py-3 text-right">
-                          <Delta cents={d.delta_cents} />
-                        </span>
-                      </button>
-
-                      {isOpen && (
-                        <div className="border-t border-slate-100 bg-slate-50 px-4 py-4">
-                          <p className="text-sm text-slate-700">{d.detail}</p>
-
-                          <div className="mt-4 grid gap-4 md:grid-cols-2">
-                            <div className="rounded-lg border border-slate-200 bg-white p-4">
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Order record
-                              </h3>
-                              {order ? (
-                                <dl className="mt-2 text-sm">
-                                  <Field label="Order id" value={order.raw_order_id} />
-                                  <Field
-                                    label="Date"
-                                    value={order.order_date_raw ?? "—"}
-                                  />
-                                  <Field
-                                    label="Customer"
-                                    value={order.customer_email ?? "missing"}
-                                    highlight={!order.customer_email}
-                                  />
-                                  <Field label="Currency" value={order.currency ?? "—"} />
-                                  <Field
-                                    label="Gross"
-                                    value={formatCents(order.gross_cents)}
-                                  />
-                                  <Field
-                                    label="Discount"
-                                    value={formatCents(order.discount_cents)}
-                                  />
-                                  <Field
-                                    label="Net (expected)"
-                                    value={formatCents(order.net_cents)}
-                                  />
-                                  <Field label="Status" value={order.status ?? "—"} />
-                                </dl>
-                              ) : (
-                                <p className="mt-2 text-sm text-slate-500">
-                                  No order in the export matches this reference.
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="rounded-lg border border-slate-200 bg-white p-4">
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Payment record{matched.length > 1 ? "s" : ""}
-                              </h3>
-                              {matched.length > 0 ? (
-                                <div className="mt-2 space-y-4">
-                                  {matched.map((p) => (
-                                    <dl
-                                      key={p.transaction_ref}
-                                      className="text-sm"
-                                    >
-                                      <Field
-                                        label="Transaction"
-                                        value={p.transaction_ref}
-                                      />
-                                      <Field
-                                        label="Processed"
-                                        value={p.processed_at_raw?.trim() || "missing"}
-                                        highlight={!p.processed_at_raw?.trim()}
-                                      />
-                                      <Field
-                                        label="Reference (raw)"
-                                        value={`"${p.raw_order_reference ?? ""}"`}
-                                        highlight={
-                                          p.raw_order_reference !== p.order_key
-                                        }
-                                      />
-                                      <Field
-                                        label="Currency"
-                                        value={p.currency ?? "—"}
-                                        highlight={
-                                          Boolean(order) &&
-                                          p.currency !== order!.currency
-                                        }
-                                      />
-                                      <Field
-                                        label="Amount"
-                                        value={formatCents(p.amount_cents)}
-                                        highlight={
-                                          Boolean(order) &&
-                                          p.type === "charge" &&
-                                          p.amount_cents !== order!.net_cents
-                                        }
-                                      />
-                                      <Field label="Fee" value={formatCents(p.fee_cents)} />
-                                      <Field
-                                        label="Type / status"
-                                        value={`${p.type ?? "—"} / ${p.status ?? "—"}`}
-                                        highlight={p.status !== "settled"}
-                                      />
-                                    </dl>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="mt-2 text-sm text-slate-500">
-                                  No payment in the export references this order.
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          <ExplainPanel
-                            discrepancyId={d.id}
-                            initial={d.llm_explanation}
-                            type={d.type}
-                          />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="p-12 text-center">
+          <p className="text-sm text-slate-600">
+            Nothing matches those filters.
+          </p>
+          <button
+            onClick={() => {
+              setQuery("");
+              setTypeFilter("all");
+            }}
+            className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+          >
+            Clear filters
+          </button>
         </div>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {rows.map((d) => {
+            const isOpen = expanded === d.id;
+            const order = d.order_key ? orders[d.order_key] : undefined;
+            const matched = d.transaction_refs
+              .map((ref) => payments[ref])
+              .filter(Boolean);
+
+            return (
+              <li key={d.id}>
+                <button
+                  onClick={() => setExpanded(isOpen ? null : d.id)}
+                  aria-expanded={isOpen}
+                  className={`flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 ${
+                    isOpen ? "bg-slate-50" : ""
+                  }`}
+                >
+                  <Chevron open={isOpen} />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase ${
+                          SEVERITY_STYLES[d.severity] ?? SEVERITY_STYLES.info
+                        }`}
+                      >
+                        {d.severity}
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        {DISCREPANCY_LABELS[d.type]}
+                      </span>
+                      <span className="font-mono text-xs text-slate-500">
+                        {d.order_key ?? "no order"}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-sm text-slate-600">
+                      {DISCREPANCY_SUMMARIES[d.type]}
+                    </p>
+                  </div>
+
+                  <div className="hidden shrink-0 text-right text-xs text-slate-500 sm:block">
+                    <p>
+                      expected{" "}
+                      <span className="tabular-nums text-slate-700">
+                        {d.expected_cents == null
+                          ? "—"
+                          : formatCents(d.expected_cents)}
+                      </span>
+                    </p>
+                    <p>
+                      settled{" "}
+                      <span className="tabular-nums text-slate-700">
+                        {d.actual_cents == null
+                          ? "—"
+                          : formatCents(d.actual_cents)}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="w-28 shrink-0">
+                    <Delta cents={d.delta_cents} />
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-slate-200 bg-slate-50 px-5 py-5">
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <p className="text-sm text-slate-800">{d.detail}</p>
+                      <p className="mt-2 text-sm">
+                        <span className="font-medium text-slate-900">
+                          What to do:
+                        </span>{" "}
+                        <span className="text-slate-700">
+                          {DISCREPANCY_ACTIONS[d.type]}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div className="rounded-lg border border-slate-200 bg-white p-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          What the store recorded
+                        </h3>
+                        {order ? (
+                          <dl className="mt-2 text-sm">
+                            <Field label="Order id" value={order.raw_order_id} />
+                            <Field
+                              label="Date"
+                              value={order.order_date_raw ?? "—"}
+                            />
+                            <Field
+                              label="Customer"
+                              value={order.customer_email ?? "missing"}
+                              highlight={!order.customer_email}
+                            />
+                            <Field
+                              label="Currency"
+                              value={order.currency ?? "—"}
+                            />
+                            <Field
+                              label="Gross"
+                              value={formatCents(order.gross_cents)}
+                            />
+                            <Field
+                              label="Discount"
+                              value={formatCents(order.discount_cents)}
+                            />
+                            <Field
+                              label="Net (should be charged)"
+                              value={formatCents(order.net_cents)}
+                            />
+                            <Field label="Status" value={order.status ?? "—"} />
+                          </dl>
+                        ) : (
+                          <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                            No order in the export matches this reference. The
+                            money arrived with nothing behind it.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 bg-white p-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          What the processor recorded
+                        </h3>
+                        {matched.length > 0 ? (
+                          <div className="mt-2 space-y-4">
+                            {matched.map((p, i) => (
+                              <dl key={p.transaction_ref} className="text-sm">
+                                {matched.length > 1 && (
+                                  <p className="mb-1 text-xs font-semibold text-slate-500">
+                                    Payment {i + 1} of {matched.length}
+                                  </p>
+                                )}
+                                <Field
+                                  label="Transaction"
+                                  value={p.transaction_ref}
+                                />
+                                <Field
+                                  label="Processed"
+                                  value={p.processed_at_raw?.trim() || "missing"}
+                                  highlight={!p.processed_at_raw?.trim()}
+                                />
+                                <Field
+                                  label="Reference as written"
+                                  value={`"${p.raw_order_reference ?? ""}"`}
+                                  highlight={
+                                    p.raw_order_reference !== p.order_key
+                                  }
+                                />
+                                <Field
+                                  label="Currency"
+                                  value={p.currency ?? "—"}
+                                  highlight={
+                                    Boolean(order) &&
+                                    p.currency !== order!.currency
+                                  }
+                                />
+                                <Field
+                                  label="Amount"
+                                  value={formatCents(p.amount_cents)}
+                                  highlight={
+                                    Boolean(order) &&
+                                    p.type === "charge" &&
+                                    p.amount_cents !== order!.net_cents
+                                  }
+                                />
+                                <Field
+                                  label="Fee"
+                                  value={formatCents(p.fee_cents)}
+                                />
+                                <Field
+                                  label="Type / status"
+                                  value={`${p.type ?? "—"} / ${p.status ?? "—"}`}
+                                  highlight={p.status !== "settled"}
+                                />
+                              </dl>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                            No payment in the export references this order. The
+                            customer was never charged.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <ExplainPanel
+                      discrepancyId={d.id}
+                      initial={d.llm_explanation}
+                      type={d.type}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

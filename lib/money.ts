@@ -56,3 +56,17 @@ export function formatCents(cents: number): string {
 export function formatMoney(cents: number, currency = "USD"): string {
   return `${currency} ${formatCents(cents)}`;
 }
+
+/**
+ * Formats integer cents as a dollar amount, e.g. "$1,234.56".
+ *
+ * Used for the roll-up figures, which are USD by construction: the only
+ * non-USD rows in play are the currency mismatches, and those are excluded
+ * from every total precisely because they cannot be added to one.
+ */
+export function formatDollars(cents: number): string {
+  const rounded = Math.round(cents);
+  return rounded < 0
+    ? `-$${formatCents(Math.abs(rounded))}`
+    : `$${formatCents(rounded)}`;
+}

@@ -62,8 +62,9 @@ function ChartTooltip({
 export default function RiskChart({ data }: { data: Datum[] }) {
   // Types with no quantifiable delta (currency mismatch) would render as an
   // invisible zero-width bar and read as "no exposure", which is the opposite
-  // of true. They are reported by count in the table instead.
+  // of true. They are named below the chart instead of vanishing from it.
   const plotted = data.filter((d) => d.cents !== 0);
+  const omitted = data.filter((d) => d.cents === 0);
 
   if (plotted.length === 0) {
     return (
@@ -144,6 +145,19 @@ export default function RiskChart({ data }: { data: Datum[] }) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {omitted.length > 0 && (
+        <p className="mt-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
+          Not shown, because no dollar figure can honestly be put on them:{" "}
+          {omitted
+            .map(
+              (d) =>
+                `${DISCREPANCY_LABELS[d.type].toLowerCase()} (${d.count})`,
+            )
+            .join(", ")}
+          . These are real findings — see the table below.
+        </p>
+      )}
     </div>
   );
 }

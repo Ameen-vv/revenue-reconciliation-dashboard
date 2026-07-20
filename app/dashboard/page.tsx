@@ -5,6 +5,7 @@ import ImportPanel from "@/components/import-panel";
 import HeadlineCards from "@/components/headline-cards";
 import RiskChart from "@/components/risk-chart";
 import DiscrepancyTable from "@/components/discrepancy-table";
+import PriorityList from "@/components/priority-list";
 import { summarize, riskByType } from "@/lib/summary";
 import type { DiscrepancyRow, OrderRow, PaymentRow } from "@/lib/summary";
 
@@ -33,14 +34,22 @@ export default async function DashboardPage() {
   if (!latestImport) {
     return (
       <Shell email={user.email}>
-        <ImportPanel hasData={false} />
-        <section className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <h2 className="text-lg font-medium text-slate-900">Nothing imported yet</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
-            Load the sample dataset above, or upload your own order and payment
-            exports, to see where the two systems disagree.
+        <section className="rounded-xl border border-slate-200 bg-white p-10 text-center">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Start by importing two exports
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-slate-600">
+            One from the order system — what the store believes it sold — and
+            one from the payment processor — what actually got charged,
+            refunded or settled. Every order is matched to its payments, and
+            each way the two disagree is classified and priced.
+          </p>
+          <p className="mx-auto mt-3 max-w-lg text-xs text-slate-500">
+            Nothing is sent to a third party during this step, and the files
+            themselves are not stored.
           </p>
         </section>
+        <ImportPanel hasData={false} />
       </Shell>
     );
   }
@@ -97,27 +106,23 @@ export default async function DashboardPage() {
 
   const chartData = riskByType(discrepancyRows);
 
+  const unquantifiedCount = discrepancyRows.filter(
+    (d) => d.delta_cents == null,
+  ).length;
+
   return (
     <Shell email={user.email}>
-      <ImportPanel hasData />
+      <HeadlineCards summary={summary} unquantifiedCount={unquantifiedCount} />
 
-      <p className="text-sm text-slate-500">
-        Import of {new Date(latestImport.created_at).toLocaleString()} —{" "}
-        {latestImport.orders_count} orders, {latestImport.payments_count} payments
-        {latestImport.duplicates_dropped > 0 &&
-          `, ${latestImport.duplicates_dropped} duplicate order row dropped`}
-        .
-      </p>
-
-      <HeadlineCards summary={summary} />
+      <PriorityList discrepancies={discrepancyRows} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-900">
-          Value at risk by discrepancy type
+          Where the money is, by problem type
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Bars right of the line are money that left the business or arrived
-          unattributed. Bars left of it are revenue that was never banked.
+          Bars to the right are money that left the business or arrived with no
+          order behind it. Bars to the left are revenue that was never banked.
         </p>
         <div className="mt-4">
           <RiskChart data={chartData} />
@@ -129,6 +134,23 @@ export default async function DashboardPage() {
         orders={ordersByKey}
         payments={paymentsByRef}
       />
+
+      <details className="rounded-xl border border-slate-200 bg-white p-5">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+          Import details
+        </summary>
+        <p className="mt-2 text-sm text-slate-600">
+          Imported {new Date(latestImport.created_at).toLocaleString()} —{" "}
+          {latestImport.orders_count} orders and {latestImport.payments_count}{" "}
+          payments
+          {latestImport.duplicates_dropped > 0 &&
+            `, after dropping ${latestImport.duplicates_dropped} exact-duplicate order row`}
+          .
+        </p>
+        <div className="mt-4">
+          <ImportPanel hasData />
+        </div>
+      </details>
     </Shell>
   );
 }
@@ -141,19 +163,27 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
+            <h1 className="text-lg font-semibold text-slate-900">
               Reconciliation Dashboard
             </h1>
-            <p className="text-sm text-slate-500">{email}</p>
+            <p className="text-xs text-slate-500">
+              Orders checked against payments
+            </p>
           </div>
-          <SignOutButton />
-        </header>
-        {children}
-      </div>
-    </main>
+          <div className="flex items-center gap-4">
+            <span className="hidden text-sm text-slate-500 sm:inline">
+              {email}
+            </span>
+            <SignOutButton />
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl space-y-5 px-6 py-8">{children}</main>
+    </div>
   );
 }

@@ -57,6 +57,8 @@ export type Summary = {
   reconciledCents: number;
   /** Order value touched by at least one discrepancy. */
   disputedCents: number;
+  /** How many orders carry at least one discrepancy. */
+  disputedOrderCount: number;
   /** Money taken in excess or received without an order. */
   overchargedCents: number;
   /** Revenue the store believes it earned but never banked. Negative. */
@@ -87,9 +89,14 @@ export function summarize(
 
   let disputedCents = 0;
   let cleanCents = 0;
+  let disputedOrderCount = 0;
   for (const order of orders) {
-    if (flaggedKeys.has(order.order_key)) disputedCents += order.net_cents;
-    else cleanCents += order.net_cents;
+    if (flaggedKeys.has(order.order_key)) {
+      disputedCents += order.net_cents;
+      disputedOrderCount += 1;
+    } else {
+      cleanCents += order.net_cents;
+    }
   }
 
   let overchargedCents = 0;
@@ -108,6 +115,7 @@ export function summarize(
     discrepancyCount: discrepancies.length,
     reconciledCents: cleanCents,
     disputedCents,
+    disputedOrderCount,
     overchargedCents,
     underCollectedCents,
     netAtRiskCents: overchargedCents + underCollectedCents,
