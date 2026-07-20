@@ -20,6 +20,9 @@ export const runtime = "nodejs";
 
 const requestSchema = z.object({ discrepancyId: z.string().uuid() });
 
+/** Overridable so the model can be changed without a code deploy. */
+const MODEL = process.env.LLM_MODEL ?? "llama-3.3-70b-versatile";
+
 /**
  * The shape the model must return. Anything else is treated as a failure --
  * we validate rather than trust, because a model that returns prose where a
@@ -154,11 +157,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ explanation, fallback: true });
   };
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return serveFallback();
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // Groq exposes an OpenAI-compatible endpoint, so the official SDK is reused
+  // with a different base URL rather than pulling in a second client library.
+  const client = new OpenAI({
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: "https://api.groq.com/openai/v1",
+  });
   const userPrompt = buildUserPrompt(discrepancy);
 
   /**
@@ -172,7 +180,7 @@ export async function POST(request: Request) {
    */
   const callModel = async () => {
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: MODEL,
       temperature: 0,
       max_tokens: 400,
       response_format: { type: "json_object" },
