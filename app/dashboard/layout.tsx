@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import SignOutButton from "@/components/sign-out-button";
-import ThemeToggle from "@/components/theme-toggle";
-import DashboardNav from "@/components/dashboard-nav";
+import Sidebar from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -21,29 +19,16 @@ export default async function DashboardLayout({
   if (!user) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-3">
-          <div className="mr-auto">
-            <h1 className="text-base font-semibold text-ink">
-              Reconciliation Dashboard
-            </h1>
-            <p className="text-xs text-ink3">Orders checked against payments</p>
-          </div>
+    <div className="min-h-screen bg-canvas md:flex">
+      {/* Sticky on desktop so navigation stays reachable down a long table;
+          collapses to a stacked bar above the content on narrow screens. */}
+      <div className="md:sticky md:top-0 md:h-screen">
+        <Sidebar email={user.email} />
+      </div>
 
-          <DashboardNav />
-
-          <div className="flex items-center gap-2">
-            <span className="hidden text-sm text-ink3 lg:inline">
-              {user.email}
-            </span>
-            <ThemeToggle />
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl space-y-5 px-6 py-8">{children}</main>
+      <main className="min-w-0 flex-1 px-6 py-8">
+        <div className="mx-auto max-w-5xl space-y-5">{children}</div>
+      </main>
     </div>
   );
 }

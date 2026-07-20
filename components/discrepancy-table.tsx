@@ -114,6 +114,8 @@ export default function DiscrepancyTable({
   const [typeFilter, setTypeFilter] =
     useState<DiscrepancyType | "all">(initialType);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
 
   const presentTypes = useMemo(() => {
     const counts = new Map<DiscrepancyType, number>();
@@ -152,6 +154,19 @@ export default function DiscrepancyTable({
       });
   }, [discrepancies, query, typeFilter]);
 
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  // Clamp rather than store a corrected page in state: narrowing the filter
+  // while on page 3 would otherwise render an empty list until a second
+  // render corrected it.
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * pageSize;
+  const visible = rows.slice(start, start + pageSize);
+
+  function resetPaging() {
+    setPage(1);
+    setExpanded(null);
+  }
+
   return (
     <section className="rounded-xl border border-line bg-surface">
       <div className="border-b border-line p-5">
@@ -168,16 +183,20 @@ export default function DiscrepancyTable({
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              resetPaging();
+            }}
             placeholder="Search order or transaction…"
             className="w-56 rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
           />
 
           <select
             value={typeFilter}
-            onChange={(e) =>
-              setTypeFilter(e.target.value as DiscrepancyType | "all")
-            }
+            onChange={(e) => {
+              setTypeFilter(e.target.value as DiscrepancyType | "all");
+              resetPaging();
+            }}
             className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
           >
             <option value="all">All types ({discrepancies.length})</option>
@@ -189,15 +208,16 @@ export default function DiscrepancyTable({
           </select>
         </div>
 
+        {/* The row count lives in the pagination footer, so this only offers
+            the escape hatch rather than repeating the same figure twice. */}
         {(query || typeFilter !== "all") && (
           <div className="mt-3 flex items-center gap-3 text-xs text-ink2">
-            <span>
-              Showing {rows.length} of {discrepancies.length}
-            </span>
+            <span>Filtered.</span>
             <button
               onClick={() => {
                 setQuery("");
                 setTypeFilter("all");
+                resetPaging();
               }}
               className="font-medium text-ink underline"
             >
@@ -216,6 +236,7 @@ export default function DiscrepancyTable({
             onClick={() => {
               setQuery("");
               setTypeFilter("all");
+              resetPaging();
             }}
             className="mt-3 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink2"
           >
@@ -224,7 +245,7 @@ export default function DiscrepancyTable({
         </div>
       ) : (
         <ul className="divide-y divide-line">
-          {rows.map((d) => {
+          {visible.map((d) => {
             const isOpen = expanded === d.id;
             const order = d.order_key ? orders[d.order_key] : undefined;
             const matched = d.transaction_refs
@@ -423,6 +444,125 @@ export default function DiscrepancyTable({
           })}
         </ul>
       )}
+
+      {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3 text-sm">
+          <p className="mr-auto text-ink3">
+            Showing{" "}
+            <span className="text-ink2">
+              {start + 1}–{Math.min(start + pageSize, rows.length)}
+            </span>{" "}
+            of <span className="text-ink2">{rows.length}</span>
+            {rows.length !== discrepancies.length &&
+              ` (filtered from ${discrepancies.length})`}
+          </p>
+
+          <label className="flex items-center gap-2 text-xs text-ink3">
+            Rows
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                resetPaging();
+              }}
+              className="rounded-md border border-line px-2 py-1 text-sm text-ink outline-none focus:border-ink"
+            >
+              {[10, 25, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-center gap-1">
+            <PageButton
+              onClick={() => {
+                setPage(currentPage - 1);
+                setExpanded(null);
+              }}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </PageButton>
+
+            {pageNumbers(currentPage, pageCount).map((n, i) =>
+              n === "gap" ? (
+                <span key={`gap-${i}`} className="px-1 text-ink3">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  onClick={() => {
+                    setPage(n);
+                    setExpanded(null);
+                  }}
+                  aria-current={n === currentPage ? "page" : undefined}
+                  className={`min-w-8 rounded-md px-2 py-1 text-sm ${
+                    n === currentPage
+                      ? "bg-ink font-medium text-canvas"
+                      : "text-ink2 hover:bg-raised"
+                  }`}
+                >
+                  {n}
+                </button>
+              ),
+            )}
+
+            <PageButton
+              onClick={() => {
+                setPage(currentPage + 1);
+                setExpanded(null);
+              }}
+              disabled={currentPage === pageCount}
+            >
+              Next
+            </PageButton>
+          </div>
+        </div>
+      )}
     </section>
   );
+}
+
+function PageButton({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-md border border-line px-2.5 py-1 text-sm text-ink2 hover:bg-raised disabled:opacity-40 disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Page numbers with an ellipsis once the count grows.
+ *
+ * The sample dataset only needs three pages, but an import of real size would
+ * otherwise render a page button per hundred rows and wrap the footer.
+ */
+function pageNumbers(current: number, total: number): (number | "gap")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages: (number | "gap")[] = [1];
+  const from = Math.max(2, current - 1);
+  const to = Math.min(total - 1, current + 1);
+
+  if (from > 2) pages.push("gap");
+  for (let i = from; i <= to; i++) pages.push(i);
+  if (to < total - 1) pages.push("gap");
+  pages.push(total);
+
+  return pages;
 }
