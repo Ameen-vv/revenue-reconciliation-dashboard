@@ -13,11 +13,11 @@ import type { DiscrepancyRow, OrderRow, PaymentRow } from "@/lib/summary";
 import ExplainPanel from "@/components/explain-panel";
 
 const SEVERITY_STYLES: Record<string, string> = {
-  critical: "bg-red-100 text-red-800",
-  high: "bg-orange-100 text-orange-800",
-  medium: "bg-amber-100 text-amber-800",
-  low: "bg-slate-200 text-slate-700",
-  info: "bg-slate-100 text-slate-600",
+  critical: "bg-over/20 text-over",
+  high: "bg-over/10 text-over",
+  medium: "bg-warn/15 text-warn",
+  low: "bg-raised text-ink2",
+  info: "bg-raised text-ink3",
 };
 
 /**
@@ -30,16 +30,16 @@ function Delta({ cents }: { cents: number | null }) {
   if (cents == null) {
     return (
       <div className="text-right">
-        <span className="text-slate-400">n/a</span>
-        <p className="text-[11px] text-slate-400">not comparable</p>
+        <span className="text-ink3">n/a</span>
+        <p className="text-[11px] text-ink3">not comparable</p>
       </div>
     );
   }
   if (cents === 0) {
     return (
       <div className="text-right">
-        <span className="text-slate-400">—</span>
-        <p className="text-[11px] text-slate-400">amount is correct</p>
+        <span className="text-ink3">—</span>
+        <p className="text-[11px] text-ink3">amount is correct</p>
       </div>
     );
   }
@@ -47,11 +47,11 @@ function Delta({ cents }: { cents: number | null }) {
   return (
     <div className="text-right">
       <span
-        className={`font-semibold tabular-nums ${out ? "text-red-700" : "text-blue-700"}`}
+        className={`font-semibold tabular-nums ${out ? "text-over" : "text-under"}`}
       >
         {formatDollars(Math.abs(cents))}
       </span>
-      <p className={`text-[11px] ${out ? "text-red-600" : "text-blue-600"}`}>
+      <p className={`text-[11px] ${out ? "text-over" : "text-under"}`}>
         {out ? "out the door" : "uncollected"}
       </p>
     </div>
@@ -68,13 +68,13 @@ function Field({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-100 py-1.5 last:border-0">
-      <dt className="text-slate-500">{label}</dt>
+    <div className="flex justify-between gap-4 border-b border-line py-1.5 last:border-0">
+      <dt className="text-ink3">{label}</dt>
       <dd
         className={
           highlight
-            ? "rounded bg-red-50 px-1.5 font-semibold text-red-700"
-            : "text-slate-900"
+            ? "rounded bg-over-soft px-1.5 font-semibold text-over"
+            : "text-ink"
         }
       >
         {value}
@@ -88,7 +88,7 @@ function Chevron({ open }: { open: boolean }) {
     <svg
       viewBox="0 0 20 20"
       aria-hidden="true"
-      className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+      className={`h-4 w-4 shrink-0 text-ink3 transition-transform ${
         open ? "rotate-90" : ""
       }`}
       fill="currentColor"
@@ -102,13 +102,17 @@ export default function DiscrepancyTable({
   discrepancies,
   orders,
   payments,
+  initialType = "all",
 }: {
   discrepancies: DiscrepancyRow[];
   orders: Record<string, OrderRow>;
   payments: Record<string, PaymentRow>;
+  /** Pre-applied filter, set when arriving from a "Start here" link. */
+  initialType?: DiscrepancyType | "all";
 }) {
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<DiscrepancyType | "all">("all");
+  const [typeFilter, setTypeFilter] =
+    useState<DiscrepancyType | "all">(initialType);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const presentTypes = useMemo(() => {
@@ -149,14 +153,14 @@ export default function DiscrepancyTable({
   }, [discrepancies, query, typeFilter]);
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 p-5">
+    <section className="rounded-xl border border-line bg-surface">
+      <div className="border-b border-line p-5">
         <div className="flex flex-wrap items-center gap-3">
           <div className="mr-auto">
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-ink">
               Every discrepancy, worst first
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-ink3">
               Click any row to see the order and payment records side by side.
             </p>
           </div>
@@ -166,7 +170,7 @@ export default function DiscrepancyTable({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search order or transaction…"
-            className="w-56 rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
+            className="w-56 rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
           />
 
           <select
@@ -174,7 +178,7 @@ export default function DiscrepancyTable({
             onChange={(e) =>
               setTypeFilter(e.target.value as DiscrepancyType | "all")
             }
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
+            className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
           >
             <option value="all">All types ({discrepancies.length})</option>
             {presentTypes.map(([type, count]) => (
@@ -186,7 +190,7 @@ export default function DiscrepancyTable({
         </div>
 
         {(query || typeFilter !== "all") && (
-          <div className="mt-3 flex items-center gap-3 text-xs text-slate-600">
+          <div className="mt-3 flex items-center gap-3 text-xs text-ink2">
             <span>
               Showing {rows.length} of {discrepancies.length}
             </span>
@@ -195,7 +199,7 @@ export default function DiscrepancyTable({
                 setQuery("");
                 setTypeFilter("all");
               }}
-              className="font-medium text-slate-900 underline"
+              className="font-medium text-ink underline"
             >
               Clear filters
             </button>
@@ -205,7 +209,7 @@ export default function DiscrepancyTable({
 
       {rows.length === 0 ? (
         <div className="p-12 text-center">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink2">
             Nothing matches those filters.
           </p>
           <button
@@ -213,13 +217,13 @@ export default function DiscrepancyTable({
               setQuery("");
               setTypeFilter("all");
             }}
-            className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+            className="mt-3 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink2"
           >
             Clear filters
           </button>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-line">
           {rows.map((d) => {
             const isOpen = expanded === d.id;
             const order = d.order_key ? orders[d.order_key] : undefined;
@@ -232,8 +236,8 @@ export default function DiscrepancyTable({
                 <button
                   onClick={() => setExpanded(isOpen ? null : d.id)}
                   aria-expanded={isOpen}
-                  className={`flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 ${
-                    isOpen ? "bg-slate-50" : ""
+                  className={`flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-raised ${
+                    isOpen ? "bg-raised" : ""
                   }`}
                 >
                   <Chevron open={isOpen} />
@@ -247,22 +251,22 @@ export default function DiscrepancyTable({
                       >
                         {d.severity}
                       </span>
-                      <span className="font-medium text-slate-900">
+                      <span className="font-medium text-ink">
                         {DISCREPANCY_LABELS[d.type]}
                       </span>
-                      <span className="font-mono text-xs text-slate-500">
+                      <span className="font-mono text-xs text-ink3">
                         {d.order_key ?? "no order"}
                       </span>
                     </div>
-                    <p className="mt-1 truncate text-sm text-slate-600">
+                    <p className="mt-1 truncate text-sm text-ink2">
                       {DISCREPANCY_SUMMARIES[d.type]}
                     </p>
                   </div>
 
-                  <div className="hidden shrink-0 text-right text-xs text-slate-500 sm:block">
+                  <div className="hidden shrink-0 text-right text-xs text-ink3 sm:block">
                     <p>
                       expected{" "}
-                      <span className="tabular-nums text-slate-700">
+                      <span className="tabular-nums text-ink2">
                         {d.expected_cents == null
                           ? "—"
                           : formatCents(d.expected_cents)}
@@ -270,7 +274,7 @@ export default function DiscrepancyTable({
                     </p>
                     <p>
                       settled{" "}
-                      <span className="tabular-nums text-slate-700">
+                      <span className="tabular-nums text-ink2">
                         {d.actual_cents == null
                           ? "—"
                           : formatCents(d.actual_cents)}
@@ -284,22 +288,22 @@ export default function DiscrepancyTable({
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-slate-200 bg-slate-50 px-5 py-5">
-                    <div className="rounded-lg border border-slate-200 bg-white p-4">
-                      <p className="text-sm text-slate-800">{d.detail}</p>
+                  <div className="border-t border-line bg-raised px-5 py-5">
+                    <div className="rounded-lg border border-line bg-surface p-4">
+                      <p className="text-sm text-ink">{d.detail}</p>
                       <p className="mt-2 text-sm">
-                        <span className="font-medium text-slate-900">
+                        <span className="font-medium text-ink">
                           What to do:
                         </span>{" "}
-                        <span className="text-slate-700">
+                        <span className="text-ink2">
                           {DISCREPANCY_ACTIONS[d.type]}
                         </span>
                       </p>
                     </div>
 
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <div className="rounded-lg border border-slate-200 bg-white p-4">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="rounded-lg border border-line bg-surface p-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink3">
                           What the store recorded
                         </h3>
                         {order ? (
@@ -333,15 +337,15 @@ export default function DiscrepancyTable({
                             <Field label="Status" value={order.status ?? "—"} />
                           </dl>
                         ) : (
-                          <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                          <p className="mt-2 rounded-md bg-over-soft px-3 py-2 text-sm text-over">
                             No order in the export matches this reference. The
                             money arrived with nothing behind it.
                           </p>
                         )}
                       </div>
 
-                      <div className="rounded-lg border border-slate-200 bg-white p-4">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="rounded-lg border border-line bg-surface p-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink3">
                           What the processor recorded
                         </h3>
                         {matched.length > 0 ? (
@@ -349,7 +353,7 @@ export default function DiscrepancyTable({
                             {matched.map((p, i) => (
                               <dl key={p.transaction_ref} className="text-sm">
                                 {matched.length > 1 && (
-                                  <p className="mb-1 text-xs font-semibold text-slate-500">
+                                  <p className="mb-1 text-xs font-semibold text-ink3">
                                     Payment {i + 1} of {matched.length}
                                   </p>
                                 )}
@@ -399,7 +403,7 @@ export default function DiscrepancyTable({
                             ))}
                           </div>
                         ) : (
-                          <p className="mt-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                          <p className="mt-2 rounded-md bg-under-soft px-3 py-2 text-sm text-under">
                             No payment in the export references this order. The
                             customer was never charged.
                           </p>

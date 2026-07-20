@@ -1,12 +1,69 @@
 @import "tailwindcss";
 
-/* The dashboard commits to a single light theme: every surface below is
-   styled explicitly, so a prefers-color-scheme override would only fight it. */
+/* Dark is the default. The variant keys off an explicit data-theme attribute
+   rather than prefers-color-scheme, so the user's choice always wins over the
+   OS setting and the server-rendered markup is stable. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Semantic roles, so components never name a raw colour. Both themes are
+   selected sets rather than an automatic inversion of one another: the dark
+   steps of the two chart hues were validated against the dark surface
+   independently. */
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-ink3: var(--ink3);
+  --color-over: var(--over);
+  --color-over-soft: var(--over-soft);
+  --color-under: var(--under);
+  --color-under-soft: var(--under-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0d0d0d;
+  --surface: #1a1a19;
+  --raised: #232322;
+  --line: #2c2c2a;
+  --ink: #ffffff;
+  --ink2: #c3c2b7;
+  --ink3: #898781;
+  --over: #e66767;
+  --over-soft: #2a1a1a;
+  --under: #3987e5;
+  --under-soft: #16202e;
+  --good: #1baf7a;
+  --warn: #fab219;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f9f9f7;
+  --surface: #fcfcfb;
+  --raised: #f2f2ef;
+  --line: #e1e0d9;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --ink3: #898781;
+  --over: #d03b3b;
+  --over-soft: #fdf2f2;
+  --under: #2a78d6;
+  --under-soft: #eff5fd;
+  --good: #0f8f63;
+  --warn: #a16207;
+}
+
 body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
 }

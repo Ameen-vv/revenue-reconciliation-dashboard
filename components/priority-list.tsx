@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   DISCREPANCY_LABELS,
   DISCREPANCY_ACTIONS,
@@ -52,36 +53,40 @@ export default function PriorityList({
   if (items.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="text-sm font-semibold text-slate-900">Start here</h2>
-      <p className="mt-0.5 text-xs text-slate-500">
-        The decisions worth making first, biggest money at the top.
+    <section className="rounded-xl border border-line bg-surface p-5">
+      <h2 className="text-sm font-semibold text-ink">Start here</h2>
+      <p className="mt-0.5 text-xs text-ink3">
+        The decisions worth making first, biggest money at the top. Each opens
+        the matching rows.
       </p>
 
       <ol className="mt-4 space-y-2">
         {items.map((item, index) => (
-          <li
-            key={item.type}
-            className="flex items-center gap-4 rounded-lg border border-slate-200 px-4 py-3"
-          >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-              {index + 1}
-            </span>
+          <li key={item.type}>
+            <Link
+              href={`/dashboard/discrepancies?type=${item.type}`}
+              className="flex items-center gap-4 rounded-lg border border-line px-4 py-3 hover:bg-raised"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-canvas">
+                {index + 1}
+              </span>
 
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-900">
-                {DISCREPANCY_ACTIONS[item.type]}
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                {item.count} × {DISCREPANCY_LABELS[item.type].toLowerCase()}
-                {item.keys.length > 0 && ` — ${item.keys.slice(0, 4).join(", ")}`}
-                {item.keys.length > 4 && ` +${item.keys.length - 4} more`}
-              </p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink">
+                  {DISCREPANCY_ACTIONS[item.type]}
+                </p>
+                <p className="truncate text-xs text-ink3">
+                  {item.count} × {DISCREPANCY_LABELS[item.type].toLowerCase()}
+                  {item.keys.length > 0 &&
+                    ` — ${item.keys.slice(0, 4).join(", ")}`}
+                  {item.keys.length > 4 && ` +${item.keys.length - 4} more`}
+                </p>
+              </div>
 
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
-              {formatDollars(item.cents)}
-            </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-ink">
+                {formatDollars(item.cents)}
+              </span>
+            </Link>
           </li>
         ))}
       </ol>

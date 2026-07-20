@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 import { DISCREPANCY_LABELS, type DiscrepancyType } from "@/lib/types";
-import { formatCents } from "@/lib/money";
+import { formatCents, formatDollars } from "@/lib/money";
 
 /**
  * Signed exposure by discrepancy type.
@@ -22,15 +22,16 @@ import { formatCents } from "@/lib/money";
  * Ranking by absolute size alone would put two opposite problems side by side
  * and imply they need the same response.
  *
- * Two hues plus a neutral zero line, validated for colour-vision deficiency
- * against the white card surface. Every bar is also directly labelled, so the
- * reading never depends on colour alone.
+ * Colours are the CSS theme variables rather than literals, so the chart
+ * follows the theme switch. Both pairs were validated for colour-vision
+ * deficiency against their own surface. Every bar is also directly labelled,
+ * so the reading never depends on colour alone.
  */
 
-const OVER = "#e34948"; // money out the door / unattributed
-const UNDER = "#2a78d6"; // revenue never banked
-const AXIS = "#898781";
-const BASELINE = "#c3c2b7";
+const OVER = "var(--over)"; // money out the door / unattributed
+const UNDER = "var(--under)"; // revenue never banked
+const AXIS = "var(--ink3)";
+const BASELINE = "var(--line)";
 
 type Datum = { type: DiscrepancyType; cents: number; count: number };
 
@@ -44,15 +45,15 @@ function ChartTooltip({
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
-      <p className="font-medium text-slate-900">{DISCREPANCY_LABELS[d.type]}</p>
-      <p className="mt-1 text-slate-600">
+    <div className="rounded-md border border-line bg-surface px-3 py-2 text-xs shadow-lg">
+      <p className="font-medium text-ink">{DISCREPANCY_LABELS[d.type]}</p>
+      <p className="mt-1 text-ink2">
         {d.count} {d.count === 1 ? "case" : "cases"}
       </p>
-      <p className="text-slate-600">
-        {d.cents >= 0 ? "Excess / unattributed" : "Never collected"}:{" "}
-        <span className="font-medium text-slate-900">
-          {formatCents(Math.abs(d.cents))}
+      <p className="text-ink2">
+        {d.cents >= 0 ? "Out the door" : "Never collected"}:{" "}
+        <span className="font-medium text-ink">
+          {formatDollars(Math.abs(d.cents))}
         </span>
       </p>
     </div>
@@ -68,7 +69,7 @@ export default function RiskChart({ data }: { data: Datum[] }) {
 
   if (plotted.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-slate-500">
+      <p className="py-12 text-center text-sm text-ink3">
         No quantifiable exposure to chart.
       </p>
     );
@@ -81,13 +82,13 @@ export default function RiskChart({ data }: { data: Datum[] }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-ink2">
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ background: OVER }}
           />
-          Taken in excess or unattributed
+          Out the door
         </span>
         <span className="flex items-center gap-1.5">
           <span
@@ -122,10 +123,7 @@ export default function RiskChart({ data }: { data: Datum[] }) {
             tickFormatter={(t: DiscrepancyType) => DISCREPANCY_LABELS[t]}
           />
           <ReferenceLine x={0} stroke={BASELINE} />
-          <Tooltip
-            cursor={{ fill: "#f1f5f9" }}
-            content={<ChartTooltip />}
-          />
+          <Tooltip cursor={{ fill: "var(--raised)" }} content={<ChartTooltip />} />
           <Bar
             dataKey="cents"
             radius={4}
@@ -134,7 +132,7 @@ export default function RiskChart({ data }: { data: Datum[] }) {
             label={{
               position: "right",
               fontSize: 11,
-              fill: "#52514e",
+              fill: "var(--ink2)",
               formatter: (v: unknown) =>
                 typeof v === "number" ? formatCents(Math.abs(v)) : "",
             }}
@@ -147,15 +145,12 @@ export default function RiskChart({ data }: { data: Datum[] }) {
       </ResponsiveContainer>
 
       {omitted.length > 0 && (
-        <p className="mt-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        <p className="mt-1 border-t border-line pt-3 text-xs text-ink3">
           Not shown, because no dollar figure can honestly be put on them:{" "}
           {omitted
-            .map(
-              (d) =>
-                `${DISCREPANCY_LABELS[d.type].toLowerCase()} (${d.count})`,
-            )
+            .map((d) => `${DISCREPANCY_LABELS[d.type].toLowerCase()} (${d.count})`)
             .join(", ")}
-          . These are real findings — see the table below.
+          . These are real findings — see the discrepancies page.
         </p>
       )}
     </div>

@@ -58,16 +58,16 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const isLogin = mode === "login";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">
+    <main className="flex min-h-screen items-center justify-center bg-raised p-6">
+      <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-8 shadow-sm">
+        <h1 className="text-xl font-semibold text-ink">
           {isLogin ? "Sign in" : "Create an account"}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">Reconciliation Dashboard</p>
+        <p className="mt-1 text-sm text-ink3">Reconciliation Dashboard</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="block text-sm font-medium text-ink2">
               Email
             </label>
             <input
@@ -77,12 +77,12 @@ export default function AuthForm({ mode }: { mode: Mode }) {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
+              className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-ink"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="password" className="block text-sm font-medium text-ink2">
               Password
             </label>
             <input
@@ -93,17 +93,17 @@ export default function AuthForm({ mode }: { mode: Mode }) {
               autoComplete={isLogin ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
+              className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink outline-none focus:border-ink"
             />
           </div>
 
           {error && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p role="alert" className="rounded-md bg-over-soft px-3 py-2 text-sm text-over">
               {error}
             </p>
           )}
           {notice && (
-            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <p className="rounded-md bg-good/10 px-3 py-2 text-sm text-good">
               {notice}
             </p>
           )}
@@ -111,17 +111,17 @@ export default function AuthForm({ mode }: { mode: Mode }) {
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="w-full rounded-md bg-ink px-3 py-2 text-sm font-medium text-canvas disabled:opacity-50"
           >
             {pending ? "Working…" : isLogin ? "Sign in" : "Sign up"}
           </button>
         </form>
 
-        <p className="mt-6 text-sm text-slate-500">
+        <p className="mt-6 text-sm text-ink3">
           {isLogin ? "No account yet? " : "Already registered? "}
           <Link
             href={isLogin ? "/signup" : "/login"}
-            className="font-medium text-slate-900 underline"
+            className="font-medium text-ink underline"
           >
             {isLogin ? "Sign up" : "Sign in"}
           </Link>

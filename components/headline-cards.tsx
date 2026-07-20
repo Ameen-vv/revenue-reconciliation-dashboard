@@ -22,13 +22,11 @@ function Stat({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-ink3">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-        {value}
-      </p>
-      <p className="text-xs text-slate-500">{sub}</p>
+      <p className="mt-1 text-lg font-semibold tabular-nums text-ink">{value}</p>
+      <p className="text-xs text-ink3">{sub}</p>
     </div>
   );
 }
@@ -56,88 +54,82 @@ export default function HeadlineCards({
   return (
     <div className="space-y-4">
       {/* How bad is it? One number, stated once. */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-line bg-surface p-6">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="text-sm font-medium text-slate-500">
+            <p className="text-sm font-medium text-ink3">
               Total money involved in discrepancies
             </p>
-            <p className="mt-1 text-4xl font-semibold tabular-nums text-slate-900">
+            <p className="mt-1 text-4xl font-semibold tabular-nums text-ink">
               {formatDollars(totalExposure)}
             </p>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-ink2">
               across <span className="font-medium">{discrepancyCount}</span>{" "}
               issues affecting{" "}
               <span className="font-medium">{summary.disputedOrderCount}</span>{" "}
               of {ordersCount} orders
               {unquantifiedCount > 0 && (
-                <>
-                  , plus {unquantifiedCount} that cannot be valued
-                </>
+                <>, plus {unquantifiedCount} that cannot be valued</>
               )}
               .
             </p>
           </div>
 
           <div className="text-right">
-            <p className="text-sm font-medium text-slate-500">
-              Reconciled cleanly
-            </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">
+            <p className="text-sm font-medium text-ink3">Reconciled cleanly</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-good">
               {cleanPercent}%
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink3">
               {formatDollars(reconciledCents)} across {cleanOrders} orders
             </p>
           </div>
         </div>
 
         {/* Proportion bar: the clean majority against the flagged remainder. */}
-        <div className="mt-5 flex h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="bg-emerald-500"
-            style={{ width: `${cleanPercent}%` }}
-          />
-          <div className="flex-1 bg-slate-300" />
+        <div className="mt-5 flex h-2 overflow-hidden rounded-full bg-raised">
+          <div className="bg-good" style={{ width: `${cleanPercent}%` }} />
+          <div className="flex-1 bg-ink3/40" />
         </div>
       </div>
 
       {/* The two directions. These are two different jobs, so two cards. */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-red-200 bg-red-50/50 p-5">
+        <div className="rounded-xl border border-over/40 bg-over-soft p-5">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm bg-[#e34948]" />
-            <p className="text-sm font-semibold text-slate-900">
-              Money out the door
-            </p>
+            <span className="h-2.5 w-2.5 rounded-sm bg-over" />
+            <p className="text-sm font-semibold text-ink">Money out the door</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-red-700">
+          <p className="mt-2 text-2xl font-semibold tabular-nums text-over">
             {formatDollars(overchargedCents)}
           </p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-ink2">
             Charged in excess, or received with no order behind it.
-            <span className="font-medium"> Refund it before the customer disputes it.</span>
+            <span className="font-medium text-ink">
+              {" "}
+              Refund it before the customer disputes it.
+            </span>
           </p>
         </div>
 
-        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-5">
+        <div className="rounded-xl border border-under/40 bg-under-soft p-5">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm bg-[#2a78d6]" />
-            <p className="text-sm font-semibold text-slate-900">
+            <span className="h-2.5 w-2.5 rounded-sm bg-under" />
+            <p className="text-sm font-semibold text-ink">
               Money never collected
             </p>
           </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-blue-700">
+          <p className="mt-2 text-2xl font-semibold tabular-nums text-under">
             {formatDollars(Math.abs(underCollectedCents))}
           </p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-ink2">
             Orders the store counts as revenue but was never paid for.
-            <span className="font-medium"> Chase it.</span>
+            <span className="font-medium text-ink"> Chase it.</span>
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+      <div className="rounded-xl border border-line bg-surface px-5 py-4">
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
             label="Orders"
